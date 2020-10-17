@@ -69,14 +69,18 @@
   run_opts: ["+UVM_NO_RELNOTES",
              "+UVM_VERBOSITY={verbosity}"]
 
+  doobie: ["{foo}"]
+  foo: "{foo}"
+
   // Default list of things to export to shell
   exports: [
-    TOOL_SRCS_DIR: {tool_srcs_dir}
-    EN_WAVES: {waves}
-    DUMP_FMT: {dump_fmt}
-    DUT_TOP: {dut}
-    TB_TOP: {tb}
-    dut_instance: {dut_instance}
+    TOOL_SRCS_DIR: "{tool_srcs_dir}"
+    EN_WAVES: "{waves}"
+    DUMP_FMT: "{dump_fmt}"
+    DUT_TOP: "{dut}"
+    TB_TOP: "{tb}"
+    dut_instance: "{dut_instance}"
+    LD_LIBRARY_PATH: "/usr/lib:{LD_LIBRARY_PATH}"
   ]
 
   // Build modes are collection of build_opts and run_opts

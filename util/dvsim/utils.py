@@ -149,18 +149,6 @@ def _subst_wildcards(var, mdict, ignored, ignore_error, seen):
             idx += match.end()
             continue
 
-        # If the name has been seen already, we've spotted circular recursion.
-        # If we're ignoring errors, skip over it. Otherwise, error.
-        if name in seen:
-            if ignore_error:
-                idx += match.end()
-                any_err = True
-                continue
-
-            raise ValueError('String contains circular expansion of '
-                             'wildcard {!r}.'
-                             .format(match.group(0)))
-
         # Treat eval_cmd specially
         if name == 'eval_cmd':
             cmd = _subst_wildcards(right_str[match.end():],
@@ -175,17 +163,13 @@ def _subst_wildcards(var, mdict, ignored, ignore_error, seen):
 
             # Otherwise, check that each of them is ignored, or that
             # ignore_error is True.
-            bad_names = False
             if not ignore_error:
                 for cmd_match in cmd_matches:
                     if cmd_match.group(1) not in ignored:
-                        bad_names = True
-
-            if bad_names:
-                raise ValueError('Cannot run eval_cmd because the command '
-                                 'expands to {!r}, which still contains a '
-                                 'wildcard.'
-                                 .format(cmd))
+                        raise ValueError('Cannot run eval_cmd because the '
+                                         'command expands to {!r}, which '
+                                         'still contains a wildcard.'
+                                         .format(cmd))
 
             # We can't run the command (because it still has wildcards), but we
             # don't want to report an error either because ignore_error is true
@@ -193,22 +177,32 @@ def _subst_wildcards(var, mdict, ignored, ignore_error, seen):
             # partially evaluated version.
             return (var[:idx] + right_str[:match.end()] + cmd, True)
 
-        # Otherwise, look up name in mdict.
-        value = mdict.get(name)
+        # If the name has been seen already, we've spotted circular recursion.
+        # Else, look up the name in mdict. In both cases, check the environment
+        # next.
+        if name in seen:
+            value = None
+            name_in_seen_err = True
+        else:
+            value = mdict.get(name)
+            name_in_seen_err = False
 
         # If the value isn't set, check the environment
         if value is None:
             value = os.environ.get(name)
 
         if value is None:
-            # Ignore missing values if ignore_error is True.
-            if ignore_error:
-                idx += match.end()
-                continue
-
-            raise ValueError('String to be expanded contains '
-                             'unknown wildcard, {!r}.'
-                             .format(match.group(0)))
+            if name_in_seen_err:
+                raise ValueError('String contains circular expansion of '
+                                 'wildcard {!r}.'
+                                 .format(match.group(0)))
+            else:
+                if ignore_error:
+                    idx += match.end()
+                    continue
+                raise ValueError('String to be expanded contains '
+                                 'unknown wildcard, {!r}.'
+                                 .format(match.group(0)))
 
         value = _stringify_wildcard_value(value)
 
@@ -226,7 +220,7 @@ def _subst_wildcards(var, mdict, ignored, ignore_error, seen):
             idx += match.start() + len(value)
 
 
-def subst_wildcards(var, mdict, ignored_wildcards=[], ignore_error=False):
+def subst_wildcards(var, mdict, ignored_wildcards=[], ignore_error=False, seen=[]):
     '''Substitute any "wildcard" variables in the string var.
 
     var is the string to be substituted. mdict is a dictionary mapping
@@ -297,7 +291,7 @@ def subst_wildcards(var, mdict, ignored_wildcards=[], ignore_error=False):
 
     '''
     try:
-        return _subst_wildcards(var, mdict, ignored_wildcards, ignore_error, [])[0]
+        return _subst_wildcards(var, mdict, ignored_wildcards, ignore_error, seen)[0]
     except ValueError as err:
         log.error(str(err))
         sys.exit(1)
@@ -387,6 +381,10 @@ def find_and_substitute_wildcards(sub_dict,
 
         elif type(sub_dict[key]) is list:
             sub_dict_key_values = list(sub_dict[key])
+            if key == "exports":
+                log.info("exports value = %s", sub_dict_key_values)
+                log.info("type is %s", str(type(sub_dict_key_values)))
+
             # Loop through the list of key's values and substitute each var
             # in case it contains a wildcard
             for i in range(len(sub_dict_key_values)):
@@ -399,14 +397,14 @@ def find_and_substitute_wildcards(sub_dict,
                 elif type(sub_dict_key_values[i]) is str:
                     sub_dict_key_values[i] = subst_wildcards(
                         sub_dict_key_values[i], full_dict, ignored_wildcards,
-                        ignore_error)
+                        ignore_error, [sub_dict_key_values[i]])
 
             # Set the substituted key values back
             sub_dict[key] = sub_dict_key_values
 
         elif type(sub_dict[key]) is str:
             sub_dict[key] = subst_wildcards(sub_dict[key], full_dict,
-                                            ignored_wildcards, ignore_error)
+                                            ignored_wildcards, ignore_error, [sub_dict[key]])
     return sub_dict
 
 

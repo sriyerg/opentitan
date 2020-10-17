@@ -257,7 +257,7 @@ class FlowCfg():
                 self.imported_cfg_files.append(cfg_file)
                 # Substitute wildcards in cfg_file files since we need to process
                 # them right away.
-                cfg_file = subst_wildcards(cfg_file, self.__dict__)
+                cfg_file = subst_wildcards(cfg_file, self.__dict__, seen=[cfg_file])
                 self._parse_cfg(cfg_file, False)
             else:
                 log.error("Cfg file \"%s\" has already been parsed", cfg_file)
@@ -271,7 +271,7 @@ class FlowCfg():
                     # them right away.
                     cfg_file = subst_wildcards(entry,
                                                self.__dict__,
-                                               ignore_error=True)
+                                               ignore_error=True, seen=[cfg_file])
                     self.cfgs.append(self.create_instance(cfg_file))
 
                 elif type(entry) is dict:
