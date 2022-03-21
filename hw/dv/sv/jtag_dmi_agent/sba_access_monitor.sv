@@ -87,7 +87,7 @@ class sba_access_monitor #(type ITEM_T = sba_access_item) extends dv_base_monito
                                 dmi_item.sprint(uvm_default_line_printer)), UVM_HIGH)
 
       // Pass through DMI accesses that do not touch the SBA registers.
-      if (!dmi_item.addr inside sba_addrs) begin
+      if (!dmi_item.addr inside {sba_addrs}) begin
         non_sba_jtag_dmi_analysis_port.write(dmi_item);
         continue;
       end
